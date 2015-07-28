@@ -1,0 +1,27 @@
+{
+  "name": "crawl",
+  "version": "0.0.2",
+  "description": "A crawling application for the Digital Transformation Office, Created largely using simplecrawler",
+  "main": "crawl.js",
+  "author": "Digital Transformation Office - Commonwealth of Australia",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AusDTO/discoveryLayer"
+  },
+  "dependencies": {
+    "bluebird": ">=2.9.0",
+    "config": "latest",
+    "convict": "latest",
+    "moment": ">=2.10.0",
+    "pg-hstore": "latest",
+    "pg": "latest",
+    "sequelize": "latest",
+    "simplecrawler": "0.5.2",
+    "winston": "latest"
+  },
+  "devDependencies": {
+    "chai": "*",
+    "mocha": "*"
+  },
+  "license": "GPL"
+}

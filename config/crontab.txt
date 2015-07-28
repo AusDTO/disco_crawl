@@ -1,0 +1,2 @@
+*/10 * * * * /src/wrapper.sh > /dev/null
+*/10 * * * * /src/flipWrapper.sh> /dev/null

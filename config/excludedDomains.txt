@@ -1,0 +1,2 @@
+^trove.nla.gov.au
+^pandora.nla.gov.au
