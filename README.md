@@ -1,12 +1,12 @@
 #Overview
-This appplication crawls all gov.au domaians (excluding states and territories) and stores the resouces
+This application crawls all gov.au domains (excluding states and territories) and stores the resouces
 found in a database. It is the intent that other components of the discovery layer will then modify and
-enhane that crawled information to support an improved user experience.
+enhance that crawled information to support an improved user experience.
 
-It is a node application largely based on the simplecrawler projecct and orientDb.
+It is a node application largely based on the simplecrawler project.
 
 ##Options
-There are a large set of options available to control the crawler behaviour. These can be altered through environment variables or as command line parameters. Refer to the config/config.js file for information.
+There are a large set of options available to control the crawler behavior. These can be altered through environment variables or as command line parameters. Refer to the config/config.js file for information.
 
 ##Significant Internal Functions
 
@@ -47,7 +47,3 @@ Builds the object to be inserted in the database based on the simplecrawler queu
 
 ###queueUrl
 Override of the simplecrawler function to allow checking the database if the item is ready to fetch.
-
-#Docker
-
-TODO - Add some docker information
