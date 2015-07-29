@@ -3,14 +3,20 @@ var conf = require('./config.js');
 var stdLog = conf.get('logFile') + '_std.log';
 var errLog = conf.get('logFile') + '_err.log';
 
+
 if (conf.get('debug')) {
-  logger.transports.Console.level = 'debug';
-  //logger.remove(winston.transports.Console);
+
+    logger.remove(winston.transports.Console);
+
+  logger.add(winston.transports.Console, {
+    level: 'debug'
+  });
 
   logger.add(winston.transports.File, {
     name: 'standard',
     filename: stdLog,
-    level: 'debug'
+    level: 'debug',
+    maxsize: (25 * 1024 * 1024 ) //bytes
   });
   logger.add(winston.transports.File, {
     name: 'error',
@@ -34,5 +40,5 @@ if (conf.get('debug')) {
 }
 
 logger.info('Logging Configured');
-
+logger.debug('Debug Messages Included');
 module.exports = logger;

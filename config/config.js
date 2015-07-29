@@ -101,12 +101,6 @@ var conf = convict({
     env: 'CRAWL_DBNAME'
 
   },
-  dbSchema: {
-    doc: 'The Database Schema Being Used',
-    format: String,
-    default: 'webDocumentContainer',
-    arg: 'dbSchema'
-  },
   flipOrder: {
     doc: 'Only select record ids which are odd',
     format: Boolean,

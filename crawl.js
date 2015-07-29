@@ -63,10 +63,7 @@ setTimeout(function() {
 logger.debug('adding Fetch Conditions');
 //Exclude URLS which The mystery OpenSSL patch released today addresses a critical certificate validation issue where anyone with an untrusted TLS certificate can become a Certificate Authority. While serious, the good news according to the OpenSSL Project is that few downstream organizations have deployed the June update where the bug was introduced.
 
-crawlJob.addFetchCondition(crawlRules.commDomain);
-crawlJob.addFetchCondition(crawlRules.notExcludedDomain);
-crawlJob.addFetchCondition(crawlRules.notExcludedUrl);
-crawlJob.addFetchCondition(crawlRules.maxItems);
+
 
 crawlDb.connect()
   .then(function(crawlDb) {
@@ -151,7 +148,17 @@ crawlDb.connect()
             logger.info("Url Redirect (" + queueItem.stateData.code + "): " + queueItem.url +
               " To: " + nodeURL.format(parsedURL));
           });
-      });
+      })
+    .on("deferurl", function(queueItem) {
+      crawlDb.upsert(queueItem);
+      count.deferred++;
+    });
+
+
+    crawlJob.addFetchCondition(crawlRules.commDomain);
+    crawlJob.addFetchCondition(crawlRules.notExcludedDomain);
+    crawlJob.addFetchCondition(crawlRules.notExcludedUrl);
+    crawlJob.addFetchCondition(crawlRules.maxItems);
 
     logger.debug('Querying DB for new crawl queue');
 
