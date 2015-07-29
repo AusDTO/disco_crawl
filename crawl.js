@@ -149,17 +149,19 @@ crawlDb.connect()
               " To: " + nodeURL.format(parsedURL));
           });
       })
-    .on("deferurl", function(queueItem) {
-      crawlDb.upsert(queueItem);
-      count.deferred++;
-    });
+      .on("deferurl", function(queueItem) {
+        logger.debug("URL Deferred (q=" + crawlJob.queue.length + "): " + queueItem.url);
+        crawlDb.upsert(queueItem);
+        count.deferred++;
+      });
 
 
     crawlJob.addFetchCondition(crawlRules.commDomain);
     crawlJob.addFetchCondition(crawlRules.notExcludedDomain);
     crawlJob.addFetchCondition(crawlRules.notExcludedUrl);
-    crawlJob.addFetchCondition(crawlRules.maxItems);
-
+    if (conf.get('maxItems') > 0) {
+      crawlJob.addFetchCondition(crawlRules.maxItems);
+    }
     logger.debug('Querying DB for new crawl queue');
 
     crawlDb.newQueueList(conf.get('initQueueSize'))

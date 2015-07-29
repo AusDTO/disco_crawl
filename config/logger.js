@@ -3,10 +3,11 @@ var conf = require('./config.js');
 var stdLog = conf.get('logFile') + '_std.log';
 var errLog = conf.get('logFile') + '_err.log';
 
+var maxlogfilesize = 25 * 1024 * 1024;
 
 if (conf.get('debug')) {
 
-    logger.remove(winston.transports.Console);
+  logger.remove(winston.transports.Console);
 
   logger.add(winston.transports.Console, {
     level: 'debug'
@@ -16,12 +17,13 @@ if (conf.get('debug')) {
     name: 'standard',
     filename: stdLog,
     level: 'debug',
-    maxsize: (25 * 1024 * 1024 ) //bytes
+    maxsize: maxlogfilesize
   });
   logger.add(winston.transports.File, {
     name: 'error',
     filename: errLog,
-    level: 'error'
+    level: 'error',
+    maxsize: maxlogfilesize
   });
   logger.info('Debug logging enabled');
 } else {
@@ -30,12 +32,14 @@ if (conf.get('debug')) {
   logger.add(winston.transports.File, {
     name: 'standard',
     filename: stdLog,
-    level: 'info'
+    level: 'info',
+    maxsize: maxlogfilesize
   });
   logger.add(winston.transports.File, {
     name: 'error',
     filename: errLog,
-    level: 'error'
+    level: 'error',
+    maxsize: maxlogfilesize
   });
 }
 
