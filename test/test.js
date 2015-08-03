@@ -157,22 +157,37 @@ describe('discoCrawl Testing', function() {
     //url regex
 
     describe('#notExcludedUrl()', function() {
-      it('should return false if one of the excludedUrl patterns (Mostly search pages)', function() {
+      it('should return false for australian cancer trial search', function() {
         assert.equal(crawlRules.notExcludedUrl({
           host: 'www.australiancancertrials.gov.au',
           path: '/search-clinical-trials/search-results.aspx?kw=&t=&s=&p=&ph=&int=&df=&dt=&ps=&fs=&min=&max=&units=&gen=&loc=&et=&rs=',
           protocol: 'http'
         }), false);
       });
+      it('should return false for browsing law.ato', function() {
+        assert.equal(crawlRules.notExcludedUrl({
+          host: 'law.ato.gov.au',
+          path: '/atolaw/Browse.htm?ImA=folder&Node=5~3~1~4~0&OpenNodes=5~3~1,5~3~1~4,5,5~3&DBTOC=06%3AATO%20Rulings%20and%20Determinations%20%28Including%20GST%20Bulletins%29%3ACompendium%3ARulings%3ASuperannuation%20Guarantee%3A2009#5~3~1~4~0',
+          protocol: 'http'
+        }), false);
+      });
 
-      it('should return true if not one of the excludedUrl patterns (Mostly search pages)', function() {
+      it('should return true for viewing australian cancer trials)', function() {
         assert.equal(crawlRules.notExcludedUrl({
           host: 'www.australiancancertrials.gov.au',
           path: '/search-clinical-trials/search-results/clinical-trials-details.aspx?TrialID=368447&ds=1',
           protocol: 'http'
         }), true);
       });
+    it('should return true for viewing law.ato)', function() {
+      assert.equal(crawlRules.notExcludedUrl({
+        host: 'http://law.ato.gov.au',
+        path: '/atolaw/view.htm?dbwidetocone=06%3AATO%20Rulings%20and%20Determinations%20%28Including%20GST%20Bulletins%29%3ACompendium%3ARulings%3ASuperannuation%20Guarantee%3A2009%3A%2304910010000%23SGR%202009%2F1EC%20-%20Compendium%3B',
+        protocol: 'http'
+      }), true);
     });
+      });
+
 
     //maxItems: function(parsedURL, crawler)
   });

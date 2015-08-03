@@ -131,7 +131,8 @@ crawlDb.connect()
       })
       .on("fetchheaders", function(queueItem, responseObject) {
         logger.debug("Fetching Headers: " + queueItem.url);
-        logger.debug("Headers Response: " + responseObject.toString());
+
+        logger.debug("Headers Response: " + responseObject);
       })
       .on("fetchdataerror", function(queueItem, response) {
         logger.debug("Fetching Data Error: " + queueItem.url);
@@ -159,6 +160,16 @@ crawlDb.connect()
     crawlJob.addFetchCondition(crawlRules.commDomain);
     crawlJob.addFetchCondition(crawlRules.notExcludedDomain);
     crawlJob.addFetchCondition(crawlRules.notExcludedUrl);
+
+    crawlJob.queueURL("https://www.comlaw.gov.au/Details/F2008L02038/Explanatory%20Statement/Text/Text");
+//    crawlJob.queueURL("https://www.comlaw.gov.au/Details/F2007L04255/Explanatory%20Statement/Text/Text");
+//    crawlJob.queueURL("https://www.comlaw.gov.au/Details/F2014L00711/e4755877-fe11-47cf-b3d6-06e7d5d7c5d7_files/image001.jpg");
+//    crawlJob.queueURL("https://www.comlaw.gov.au/Details/F2012L01777/a5632fc2-004f-48d2-8b7e-def2fe07af3e_files/image004.png");
+//    crawlJob.queueURL("https://www.comlaw.gov.au/Details/F2012L01777/a5632fc2-004f-48d2-8b7e-def2fe07af3e_files/image021.png");
+//    crawlJob.queueURL("https://www.comlaw.gov.au/Details/F2014L00513/Explanatory%20Statement/Text/Text");
+//    crawlJob.queueURL("https://www.comlaw.gov.au/Details/F2012L01567/8c3a92e2-b393-48c2-b8cc-efcc2428f109_files/image006.jpg");
+
+
     if (conf.get('maxItems') > 0) {
       crawlJob.addFetchCondition(crawlRules.maxItems);
     }
@@ -170,7 +181,7 @@ crawlDb.connect()
           logger.info('Initialising queue with  ' + results.length + ' items from DB');
           results.forEach(function(item) {
             logger.debug("Queued: " + item.url);
-            crawlJob.queueURL(item.url);
+            //crawlJob.queueURL(item.url);
           });
         } else {
           logger.info("Nothing ready to crawl, exiting");
