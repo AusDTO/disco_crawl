@@ -1,15 +1,15 @@
 /* Normal Queue */
 SELECT url, "nextFetchDateTime"
 FROM "webDocuments"
-WHERE "nextFetchDateTime" < NOW() OR "nextFetchDateTime" is null
-ORDER BY "nextFetchDateTime" DESC, created_at
-LIMIT 100;
+WHERE "nextFetchDateTime" is null
+ORDER BY "nextFetchDateTime" DESC
+LIMIT 20;
 
 /* Flipped Queue */
 SELECT url, "nextFetchDateTime"
 FROM "webDocuments"
-WHERE "nextFetchDateTime" < NOW() OR "nextFetchDateTime" is null
-ORDER BY "nextFetchDateTime", created_at DESC
+WHERE "nextFetchDateTime" is null
+ORDER BY "nextFetchDateTime"
 LIMIT 20;
 
 
