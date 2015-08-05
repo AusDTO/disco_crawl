@@ -117,7 +117,7 @@ crawlDb.connect()
         //Note: This occurs after fetchcomplete so resources are already gone before we can add them to database.
         //The way to do it would be to move the storage from fetch complete to here.
       })
-      .on('notmodified', function(queueItem,response,cacheObject) {
+      .on('notmodified', function(queueItem, response, cacheObject) {
         crawlDb.upsert(util.buildWebDocument(queueItem))
           .then(function() {
             logger.info('Url Not Modified (' + queueItem.stateData.code + '): ' + queueItem.url);
