@@ -2,14 +2,14 @@ var fs = require('fs');
 var conf = require('./config/config');
 var path = require('path');
 var nodeURL = require('url');
-var Crawler = require("simplecrawler");
+var Crawler = require('simplecrawler');
 var moment = require('moment');
 var logger = require('./config/logger');
 var util = require('./lib/buildWebDocument');
 var crawlRules = require('./lib/crawlRules');
 var crawlDb = require('./lib/ormCrawlDb');
 
-logger.info("CrawlJob Settings: " + JSON.stringify(conf._instance));
+logger.info('CrawlJob Settings: ' + JSON.stringify(conf._instance));
 
 var count = {
   deferred: 0,
@@ -17,7 +17,8 @@ var count = {
   error: 0,
   serverError: 0,
   redirect: 0,
-  missing: 0
+  missing: 0,
+  notModified: 0
 };
 
 var crawlJob = new Crawler();
@@ -27,7 +28,7 @@ var crawlJob = new Crawler();
 
 
 crawlJob.interval = conf.get('interval');
-crawlJob.userAgent = "Digital Transformation Office Crawler - Contact Nigel 0418556653 - nigel.o'keefe@pmc.gov.au";
+crawlJob.userAgent = 'Digital Transformation Office Crawler - Contact Nigel 0418556653 - nigel.o\'keefe@dto.gov.au';
 crawlJob.filterByDomain = false;
 crawlJob.maxConcurrency = conf.get('concurrency');
 crawlJob.timeout = 20000; //ms
@@ -37,11 +38,11 @@ crawlJob.baseQueueURL = crawlJob.queueURL;
 crawlJob.queueURL = require('./lib/queueURL');
 
 // STOP JOB AFTER CONFIGURED TIME
-logger.info("Job set to Run for " + conf.get('timeToRun') + " seconds (" + conf.get('timeToRun') / 60 + " min) or a maximum of " + conf.get('maxItems') + " items");
+logger.info('Job set to Run for ' + conf.get('timeToRun') + ' seconds (' + conf.get('timeToRun') / 60 + ' min) or a maximum of ' + conf.get('maxItems') + ' items');
 
 
 setTimeout(function() {
-  logger.debug("Time Expired, job stopped");
+  logger.debug('Time Expired, job stopped');
   crawlJob.stop();
   for (var i = 0; i < crawlJob.queue.length; i++) {
     crawlJob.queue[i].status = 'deferred';
@@ -50,7 +51,7 @@ setTimeout(function() {
   } //end for
 
 
-  logger.info("Stats: " + JSON.stringify(count));
+  logger.info('Stats: ' + JSON.stringify(count));
   setTimeout(function() {
     //crawlDb.close();
     //process.exit();
@@ -70,88 +71,97 @@ crawlDb.connect()
 
     logger.debug('Adding event handlers');
     crawlJob
-      .on("queueerror", function(errData, urlData) {
-        logger.error("There was a queue error, Queue Erorr URL/Data: " + JSON.stringify(errData) + JSON.stringify(urlData));
+      .on('queueerror', function(errData, urlData) {
+        logger.error('There was a queue error, Queue Erorr URL/Data: ' + JSON.stringify(errData) + JSON.stringify(urlData));
         count.error++;
       })
-      .on("fetcherror", function(queueItem, response) {
+      .on('fetcherror', function(queueItem, response) {
         crawlDb.upsert(util.buildWebDocument(queueItem))
           .then(function() {
-            logger.info("Url Fetch Error (" + queueItem.stateData.code + "): " + queueItem.url);
+            logger.info('Url Fetch Error (' + queueItem.stateData.code + '): ' + queueItem.url);
             count.serverError++;
           });
       })
-      .on("fetch404", function(queueItem, response) {
+      .on('fetch404', function(queueItem, response) {
         crawlDb.upsert(util.buildWebDocument(queueItem))
           .then(function() {
-            logger.info("Url was 404: " + queueItem.url);
+            logger.info('Url was 404: ' + queueItem.url);
             count.missing++;
           });
       })
-      .on("fetchtimeout", function(queueItem) {
+      .on('fetchtimeout', function(queueItem) {
         crawlDb.upsert(util.buildWebDocument(queueItem))
           .then(function() {
-            logger.info("Url Timedout(" + queueItem.stateData.code + "): " + queueItem.url);
+            logger.info('Url Timedout(' + queueItem.stateData.code + '): ' + queueItem.url);
           });
       })
-      .on("fetchclienterror", function(queueItem, errorData) {
-        logger.debug("queueItem:" + JSON.stringify(queueItem));
+      .on('fetchclienterror', function(queueItem, errorData) {
+        logger.debug('queueItem:' + JSON.stringify(queueItem));
 
 
         crawlDb.upsert(util.buildWebDocument(queueItem))
           .then(function() {
-            logger.info("Url Fetch Client Error (" + queueItem.stateData.code + "): " + queueItem.url);
+            logger.info('Url Fetch Client Error (' + queueItem.stateData.code + '): ' + queueItem.url);
             count.error++;
           });
       })
-      .on("fetchcomplete", function(queueItem, responseBuffer, response) {
+      .on('fetchcomplete', function(queueItem, responseBuffer, response) {
         queueItem.document = responseBuffer;
         crawlDb.upsert(util.buildWebDocument(queueItem))
           .then(function() {
-            logger.info("Url Completed(" + queueItem.stateData.code + "): " + queueItem.url);
+            logger.info('Url Completed(' + queueItem.stateData.code + '): ' + queueItem.url);
             count.completed++;
           });
       })
-      .on("discoveryComplete", function(queueItem, resources) {
+      .on('discoveryComplete', function(queueItem, resources) {
         //Note: This occurs after fetchcomplete so resources are already gone before we can add them to database.
         //The way to do it would be to move the storage from fetch complete to here.
       })
-      .on("complete", function() {
-        logger.info("Stats: " + JSON.stringify(count));
+      .on('notmodified', function(queueItem,response,cacheObject) {
+        crawlDb.upsert(util.buildWebDocument(queueItem))
+          .then(function() {
+            logger.info('Url Not Modified (' + queueItem.stateData.code + '): ' + queueItem.url);
+            count.notModified++;
+          });
+
+
+      })
+      .on('complete', function() {
+        logger.info('Stats: ' + JSON.stringify(count));
         setTimeout(function() {
           //crawlDb.close();
           process.exit();
         }, 5000);
       })
-      .on("queueadd", function(queueItem) {
-        logger.debug("Queued - " + queueItem.url);
+      .on('queueadd', function(queueItem) {
+        logger.debug('Queued - ' + queueItem.url);
       })
-      .on("fetchstart", function(queueItem, requestOptions) {
-        logger.debug("URL Fetch Started " + queueItem.url);
+      .on('fetchstart', function(queueItem, requestOptions) {
+        logger.debug('URL Fetch Started ' + queueItem.url);
       })
-      .on("fetchheaders", function(queueItem, responseObject) {
-        logger.debug("Fetching Headers: " + queueItem.url);
+      .on('fetchheaders', function(queueItem, responseObject) {
+        logger.debug('Fetching Headers: ' + queueItem.url);
 
-        logger.debug("Headers Response: " + responseObject);
+        logger.debug('Headers Response: ' + responseObject);
       })
-      .on("fetchdataerror", function(queueItem, response) {
-        logger.debug("Fetching Data Error: " + queueItem.url);
+      .on('fetchdataerror', function(queueItem, response) {
+        logger.debug('Fetching Data Error: ' + queueItem.url);
       })
-      .on("crawlstart", function() {
-        logger.debug("Crawler started event did fire");
+      .on('crawlstart', function() {
+        logger.debug('Crawler started event did fire');
       })
-      .on("fetchredirect", function(queueItem, parsedURL, response) {
+      .on('fetchredirect', function(queueItem, parsedURL, response) {
         crawlJob.queueURL(nodeURL.format(parsedURL));
 
         crawlDb.upsert(util.buildWebDocument(queueItem))
           .then(function() {
             count.redirect++;
-            logger.info("Url Redirect (" + queueItem.stateData.code + "): " + queueItem.url +
-              " To: " + nodeURL.format(parsedURL));
+            logger.info('Url Redirect (' + queueItem.stateData.code + '): ' + queueItem.url +
+              ' To: ' + nodeURL.format(parsedURL));
           });
       })
-      .on("deferurl", function(queueItem) {
-        logger.debug("URL Deferred (q=" + crawlJob.queue.length + "): " + queueItem.url);
+      .on('deferurl', function(queueItem) {
+        logger.debug('URL Deferred (q=' + crawlJob.queue.length + '): ' + queueItem.url);
         crawlDb.upsert(queueItem);
         count.deferred++;
       });
@@ -160,7 +170,6 @@ crawlDb.connect()
     crawlJob.addFetchCondition(crawlRules.commDomain);
     crawlJob.addFetchCondition(crawlRules.notExcludedDomain);
     crawlJob.addFetchCondition(crawlRules.notExcludedUrl);
-
 
 
     if (conf.get('maxItems') > 0) {
@@ -173,15 +182,15 @@ crawlDb.connect()
         if (results.length > 0) {
           logger.info('Initialising queue with  ' + results.length + ' items from DB');
           results.forEach(function(item) {
-            logger.debug("Queued: " + item.url);
+            logger.debug('Queued: ' + item.url);
             crawlJob.queueURL(item.url);
           });
         } else {
-          logger.info("Nothing ready to crawl, exiting");
+          logger.info('Nothing ready to crawl, exiting');
           //    crawlDb.close();
           process.exit();
         }
-        //crawlJob.queue.freeze("theInitialQueue.json", function() {});
+        //crawlJob.queue.freeze('theInitialQueue.json', function() {});
         setTimeout(function() {
           crawlJob.start();
           logger.info('crawler started');
