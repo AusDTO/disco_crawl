@@ -17,7 +17,8 @@
     "pg": "latest",
     "sequelize": "latest",
     "simplecrawler": "0.5.2",
-    "winston": "latest"
+    "winston": "latest",
+    "request":"latest"
   },
   "devDependencies": {
     "chai": "*",
