@@ -23,7 +23,10 @@ crawlDb.connect()
       console.log('do');
       crawlDb.getHosts()
         .then(function(results) {
-            console.log(JSON.stringify(results, null, 3));
+            console.log('host,duplicate');
+            results.forEach(function(result){
+              console.log(result.host + ',' + (result.duplicate === true).toString());
+            })
           });
         })
     .catch(function(e) {
