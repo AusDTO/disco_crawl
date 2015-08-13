@@ -1,2 +1,3 @@
-*/10 * * * * /src/wrapper.sh > /dev/null
-*/10 * * * * /src/flipWrapper.sh > /dev/null
+*/10 * * * * /src/scripts/wrapper.sh > /dev/null
+*/10 * * * * /src/scripts/flipWrapper.sh > /dev/null
+0 20 * * * /src/scripts/loadhosts.sh > /dev/null

@@ -17,11 +17,16 @@
     "pg": "latest",
     "sequelize": "latest",
     "simplecrawler": "0.5.2",
-    "winston": "latest"
+    "winston": "latest",
+    "request":"latest",
+    "ckan":"latest",
+    "csv":"latest"
+
   },
   "devDependencies": {
-    "chai": "*",
-    "mocha": "*"
+    "chai": "latest",
+    "chai-as-promised": "latest",
+    "mocha": "latest"
   },
   "license": "GPL"
 }

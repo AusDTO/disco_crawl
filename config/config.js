@@ -9,7 +9,6 @@ var conf = convict({
     default: false,
     arg: 'debug',
     env: 'CRAWL_DEBUG'
-
   },
   initQueueSize: {
     doc: 'How many items to put in initial queue',
@@ -107,6 +106,34 @@ var conf = convict({
     default: false,
     arg: 'fliporder',
     env: 'CRAWL_FLIPORDER'
+  },
+  apiKey: {
+    doc: 'Data.gov.au apiKey',
+    format: String,
+    default: '',
+    arg: 'apikey',
+    env: 'HOSTLOAD_APIKEY'
+  },
+  outputId: {
+    doc: 'Data.gov.au output datastore ID',
+    format: String,
+    default: '377bc789-63ec-4cc0-9d2a-987f26d7a521',
+    arg: 'outputid',
+    env: 'HOSTLOAD_OUTPUT_ID'
+  },
+  whitelistId: {
+    doc: 'Data.gov.au whitelist datastore ID',
+    format: String,
+    default: '8aea9d2f-fd21-42ef-8cc5-bf9db3533bf8',
+    arg: 'whitelistid',
+    env: 'HOSTLOAD_WHITELIST_ID'
+  },
+  blacklistId: {
+    doc: 'Data.gov.au blacklist datastore ID',
+    format: String,
+    default: '6239de78-b28c-45a8-add2-413ed6a6f88a',
+    arg: 'blacklistid',
+    env: 'HOSTLOAD_BLACKLIST_ID'
   }
 });
 conf.validate();
