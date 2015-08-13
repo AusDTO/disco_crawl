@@ -1,16 +1,16 @@
 var fs = require('fs');
-var http = require('http');
 var Promise = require('bluebird');
 var request = Promise.promisify(require('request'));
+var moment = require('moment');
+var ckan = require('ckan');
 var logger = require('./config/logger');
 var conf = require('./config/config');
 var crawlDb = require('./lib/ormCrawlDb');
-var moment = require('moment');
-var csvParse = require('csv');
-var json2csv = require('json2csv');
-
-var join = Promise.join;
+var hostTools = require('./lib/hostTools');
 var apiKey = require('./config/apiKey');
+var csvParse = require('csv');
+var join = Promise.join;
+var client = new ckan.Client('http://data.gov.au', conf.get('apiKey'));
 
 logger.info('CrawlJob Settings: ' + JSON.stringify(conf._instance) + '\n');
 
@@ -21,178 +21,116 @@ crawlDb.getHosts = function() {
     orm.db.query('SELECT host, min("httpCode") as "minHttpCode" FROM "webDocuments" GROUP BY host;').spread(function(results, metadata) {
       //results = results.sort();
       //logger.debug('DB response: ' + JSON.stringify(results));
-      logger.debug('DB metadata: ' + JSON.stringify(metadata));
+      //logger.debug('DB metadata: ' + JSON.stringify(metadata));
       // Results will be an array and metadata will contain the number of affected rows
       resolve(results);
+      //TODO: remove null hosts through HAVING?
     });
   });
 };
 
-
-
-function shouldJobRun(lastOutputUpdate, lastBlacklistUpdate, lastWhitelistUpdate) {
-  if (lastOutputUpdate.isBefore(moment().subtract(7, 'days'))) {
-    logger.debug('output > 7 days old');
-    return true;
-  } else if (
-    lastBlacklistUpdate.isAfter(lastOutputUpdate) ||
-    lastWhitelistUpdate.isAfter(lastOutputUpdate)) {
-    logger.debug('whitelist/blacklist newer than output');
-    return true;
-  }
-  return false;
-}
-
 function getResource(options) {
   return new Promise(function(resolve, reject) {
-
-    request({
-        url: options.url,
-        headers: {
-          'Authorization': options.apiKey
-        }
-      })
-      .spread(function(response, body) {
-        logger.debug('Getting ' + options.name);
-        logger.debug('Result: ' + body);
-        csvParse.parse(body, {
-          columns: true,
-          skip_empty_lines: true
-        }, function(err, objectBody) {
-          console.log(objectBody);
-          resolve({
-            name: options.name,
-            response: response,
-            body: objectBody
-          });
+    //TODO: remove null hosts
+    //TODO: Add call to resource info to get updated date.
+    // client.action('resource_show', {id: '377bc789-63ec-4cc0-9d2a-987f26d7a521'}, function(err, result) {
+    //   logger.debug(JSON.stringify(result));
+    // });
+    client.action('datastore_search', {
+      resource_id: options.resource_id
+    }, function(err, result) {
+      logger.debug('Getting ' + options.name);
+      if (!err) {
+        logger.debug('Result: ' + JSON.stringify(result.result.records));
+        resolve({
+          name: options.name,
+          response: result.result.records,
         });
-
-      })
-      .catch(function(err) {
-        logger.error(err);
-      });
-  });
-}
-
-function buildHostdata(existingHosts, newHosts, blacklist, whitelist) {
-  return new Promise(function(resolve, reject) {
-    newHosts.forEach(function(host) {
-      host.whitelisted = false;
-      host.blacklisted = false;
-      host.wwwduplicate = false;
-      if (host.minHttpCode < 300) {
-        host.servescontent = true;
       } else {
-        host.servescontent = false;
+        logger.error(err);
       }
-      blacklist.forEach(function(blacklistHost) {
-        if (host.host === blacklistHost.host) {
-          host.blacklisted = true;
-          logger.debug('blacklisting: ' + JSON.stringify(host));
-        }
-      });
-    });
-    whitelist.forEach(function(whitelistHost) {
-      whitelistHost = {
-        host: whitelistHost.host,
-        whitelisted: true,
-        blacklisted: false,
-        minHttpCode: null,
-        wwwduplicate: false,
-        servescontent: null
-      };
-      logger.debug('whitelisting: ' + JSON.stringify(whitelistHost));
-      newHosts.push(whitelistHost);
-    });
-    var deduplicateddHosts = [];
-    newHosts.forEach(function(item, index, array) {
-      if (item.host) {
-        //logger.debug('DB row: ' + JSON.stringify(item));
-        if (item.host.search('^www\.') >= 0) {
-          var duplicateSearch = item.host.slice(4);
-          var duplicateSet = array.filter(function(row) {
-            return row.host === duplicateSearch;
-          });
-
-          if (duplicateSet.length > 0) {
-            item.wwwduplicate = true;
-            //logger.debug('Duplicate host: ' + item.host);
-          }
-        }
-        //logger.debug(JSON.stringify(item) + '-----' + deduplicateddHosts.length);
-        deduplicateddHosts.push(item);
-    //TODO: servingcontent is not being set correctly
-    //TODO: Should not need to do this redundant copy
-    //TODO: Compare old and new before uploading. That might be a diff function
-      }
-    });
-
-    //logger.debug('Final Result... \n' + JSON.stringify(newHosts, null, 2));
-    resolve(deduplicateddHosts);
-  });
-}
-
-function createCsv(hostsDataObject) {
-  return new Promise(function(resolve, reject) {
-    json2csv({
-      data: hostsDataObject
-    }, function(err, csv) {
-      if (err) {
-        logger.debug('err: ' + err);
-        reject(err);
-      }
-      //logger.debug('csv' + csv);
-      resolve(csv);
     });
   });
 }
 
 
 
-//do a promise join to request/query each resource in parallel and process when all promises resolve.
-join(getResource({
-    name: 'output',
-    url: 'https://data.gov.au/dataset/08557cab-df37-45b1-9f19-5f85efcf05bd/resource/1e44826f-ae14-40ad-b7e2-125dc82a36bd/download/hosts.csv',
-    apiKey: apiKey
-  }), getResource({
+//TODO: Setup apiKey and resource ids.
+
+var baseDataUrl = 'https://data.gov.au/api/action/datastore_search?resource_id=';
+//TODO: Replace gets with action api
+join(
+  getResource({
     name: 'blacklist',
-    url: 'https://data.gov.au/dataset/08557cab-df37-45b1-9f19-5f85efcf05bd/resource/6239de78-b28c-45a8-add2-413ed6a6f88a/download/blacklist.csv',
-    apiKey: apiKey
+    resource_id: conf.get('whitelistId'),
+    apiKey: conf.get('apiKey')
   }), getResource({
     name: 'whitelist',
-    url: 'https://data.gov.au/dataset/08557cab-df37-45b1-9f19-5f85efcf05bd/resource/8aea9d2f-fd21-42ef-8cc5-bf9db3533bf8/download/whitelist.csv',
-    apiKey: apiKey
+    resource_id: conf.get('blacklistId'),
+    apiKey: conf.get('apiKey')
   }),
   crawlDb.getHosts(),
-  function(outputResponse, blacklistResponse, whitelistResponse, newHosts) {
-    //logger.debug('output: ' + outputResponse.body);
+
+  function(blacklistResponse, whitelistResponse, newHosts) {
     logger.debug('Joining');
-    //logger.debug('blacklist: ' + blacklistResponse.body);
-    //logger.debug('whitelist: ' + whitelistResponse.body);
 
-    var lastOutputUpdate = moment(new Date(outputResponse.response.headers['last-modified'])); //Format: Tue, 04 Aug 2015 15:20:58 GMT
-    var lastBlacklistUpdate = moment(new Date(blacklistResponse.response.headers['last-modified'])); //, 'ddd, DD MMM YYYY HH:MM:SS ZZZ'); //Format: Tue, 04 Aug 2015 15:20:58 GMT
-    var lastWhitelistUpdate = moment(new Date(whitelistResponse.response.headers['last-modified'])); // 'ddd, DD MMM YYYY HH:MM:SS ZZZ'); //Format: Tue, 04 Aug 2015 15:20:58 GMT
-    logger.debug('Dates... \noutput:  \t' + lastOutputUpdate.format() + ' \nblacklist:\t' + lastBlacklistUpdate.format() + '\nwhitelist:\t' + lastWhitelistUpdate.format());
+    // var lastOutputUpdate = moment(new Date(outputResponse.response.headers['last-modified'])); //Format: Tue, 04 Aug 2015 15:20:58 GMT
+    // var lastBlacklistUpdate = moment(new Date(blacklistResponse.response.headers['last-modified'])); //, 'ddd, DD MMM YYYY HH:MM:SS ZZZ'); //Format: Tue, 04 Aug 2015 15:20:58 GMT
+    // var lastWhitelistUpdate = moment(new Date(whitelistResponse.response.headers['last-modified'])); // 'ddd, DD MMM YYYY HH:MM:SS ZZZ'); //Format: Tue, 04 Aug 2015 15:20:58 GMT
 
-    if (shouldJobRun(lastOutputUpdate, lastBlacklistUpdate, lastWhitelistUpdate) || conf.get('debug') === true) {
-      buildHostdata(outputResponse.body, newHosts, blacklistResponse.body, whitelistResponse.body)
-        .then(function(hostDataObject) {
-          createCsv(hostDataObject)
-            .then(function(csvString) {
-              fs.writeFile('hosts.csv', csvString);
-              //sendCsv(csvString);
-            })
-            .catch(function(e) {
-              logger.error(e);
+    //    logger.info('Dates... \noutput:  \t' + lastOutputUpdate.format() + ' \nblacklist:\t' + lastBlacklistUpdate.format() + '\nwhitelist:\t' + lastWhitelistUpdate.format());
+    // client.action('resource_show', {id: '377bc789-63ec-4cc0-9d2a-987f26d7a521'}, function(err, result) {
+    //   logger.debug(JSON.stringify(result));
+    // });
+
+    // if (hostTools.shouldJobRun(lastOutputUpdate, lastBlacklistUpdate, lastWhitelistUpdate) || conf.get('debug') === true) {
+    //   logger.info('Updating Host Data');
+
+    hostTools.buildHostdata(null, newHosts, blacklistResponse.response, whitelistResponse.response)
+      .then(function(hostDataObject) {
+        fs.writeFile('hosts.json', JSON.stringify(hostDataObject));
+        client.action('datastore_delete', {
+          resource_id: conf.get('outputId'),
+          force: true
+        }, function(err, response) {
+          client.action('datastore_create', {
+              resource_id: conf.get('outputId'),
+              last_modified: moment().format('YYYY-MM-DD'),
+              fields: [{
+                'id': 'host',
+                'type': 'text'
+              }, {
+                'id': 'whitelisted',
+                'type': 'bool'
+              }, {
+                'id': 'blacklisted',
+                'type': 'bool'
+              }, {
+                'id': 'wwwduplicate',
+                'type': 'bool'
+              }, {
+                'id': 'servescontent',
+                'type': 'bool'
+              }],
+              force: true,
+              records: hostDataObject
+            },
+            function(err, resource) {
+              if (!err) {
+                logger.info("Resource Updated");
+              } else {
+                logger.error("Resource NOT Updated: " + err);
+                logger.error("More: " + JSON.stringify(resource));
+              }
             });
-        })
-        .catch(function(e) {
-          logger.error(e);
         });
-      logger.debug('Updating Host Data');
-    } else {
-      logger.debug('No Update Required');
-    }
+      })
+      .catch(function(e) {
+        logger.error(e);
+      });
+    // } else {
+    //   logger.info('No Update Required');
+    //   process.exit();
+    //}
 
   });
