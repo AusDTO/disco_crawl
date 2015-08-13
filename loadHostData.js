@@ -7,7 +7,6 @@ var logger = require('./config/logger');
 var conf = require('./config/config');
 var crawlDb = require('./lib/ormCrawlDb');
 var hostTools = require('./lib/hostTools');
-var apiKey = require('./config/apiKey');
 var csvParse = require('csv');
 var join = Promise.join;
 var client = new ckan.Client('http://data.gov.au', conf.get('apiKey'));
