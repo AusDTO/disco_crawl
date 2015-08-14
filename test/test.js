@@ -66,6 +66,15 @@ describe('loadHostData Testing', function() {
         reason: 'for a test',
         comment: 'for testing resons'
       }];
+      doubleTestWhitelist = [{
+        host: 'www.newdomain.gov.au',
+        reason: 'for a test',
+        comment: 'for testing resons'
+      },{
+        host: 'www.newerdomain.com.au',
+        reason: 'for a test',
+        comment: 'for testing resons'
+      }];
       wwwDuplicateTestHosts = [{
         host: 'wwwtestdomain.gov.au',
         minHttpCode: 200
@@ -183,6 +192,18 @@ describe('loadHostData Testing', function() {
         function() {
           return hostTools.buildHostdata([], singleTestHost, [], singleTestWhitelist).should.eventually.have.property(1).with.property('servescontent').with.valueOf(null);
         });
+        it('Two whitelisted values increases count by two',
+          function() {
+            return hostTools.buildHostdata([], singleTestHost, singleTestBlackList, doubleTestWhitelist).should.eventually.have.length(9);
+          });
+        it('First whitelisted host is correct',
+          function() {
+            return hostTools.buildHostdata([], singleTestHost, singleTestBlackList, doubleTestWhitelist).should.eventually.have.property(1).with.property('host').with.valueOf('www.newdomain.com.au');
+          });
+        it('Second whitelisted host is correct',
+          function() {
+            return hostTools.buildHostdata([], singleTestHost, singleTestBlackList, doubleTestWhitelist).should.eventually.have.property(2).with.property('host').with.valueOf('www.newerdomain.com.au');
+          });
 
     });
 
