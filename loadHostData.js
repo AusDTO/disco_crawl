@@ -36,7 +36,8 @@ function getResource(options) {
     //   logger.debug(JSON.stringify(result));
     // });
     client.action('datastore_search', {
-      resource_id: options.resource_id
+      resource_id: options.resource_id,
+      limit: 99999
     }, function(err, result) {
       logger.debug('Getting ' + options.name);
       if (!err) {
@@ -53,11 +54,6 @@ function getResource(options) {
 }
 
 
-
-//TODO: Setup apiKey and resource ids.
-
-var baseDataUrl = 'https://data.gov.au/api/action/datastore_search?resource_id=';
-//TODO: Replace gets with action api
 join(
   getResource({
     name: 'blacklist',
@@ -70,9 +66,8 @@ join(
   }),
   crawlDb.getHosts(),
 
-  function(blacklistResponse, whitelistResponse, newHosts) {
+  function(whitelistResponse, blacklistResponse, newHosts) {
     logger.debug('Joining');
-
     // var lastOutputUpdate = moment(new Date(outputResponse.response.headers['last-modified'])); //Format: Tue, 04 Aug 2015 15:20:58 GMT
     // var lastBlacklistUpdate = moment(new Date(blacklistResponse.response.headers['last-modified'])); //, 'ddd, DD MMM YYYY HH:MM:SS ZZZ'); //Format: Tue, 04 Aug 2015 15:20:58 GMT
     // var lastWhitelistUpdate = moment(new Date(whitelistResponse.response.headers['last-modified'])); // 'ddd, DD MMM YYYY HH:MM:SS ZZZ'); //Format: Tue, 04 Aug 2015 15:20:58 GMT
