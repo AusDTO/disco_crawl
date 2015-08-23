@@ -54,7 +54,7 @@ setTimeout(function() {
   logger.info('Stats: ' + JSON.stringify(count));
   setTimeout(function() {
     //crawlDb.close();
-    //process.exit();
+    process.exit();
   }, 1000);
 }, conf.get('timeToRun') * 1000); //end settimeout
 
