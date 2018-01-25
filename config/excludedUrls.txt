@@ -1,2 +1,0 @@
-^http://www.australiancancertrials.gov.au/search-clinical-trials/search-results.asp
-^http://law.ato.gov.au.atolaw/Browse.htm

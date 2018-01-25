@@ -1,0 +1,16 @@
+boto3
+python-dateutil
+base58
+git+https://github.com/tehmaze/python-multihash.git
+redis
+requests
+pytz
+
+beautifulsoup4
+lxml
+
+elasticsearch>=5.0.0,<6.0.0
+certifi
+
+# raven
+git+https://github.com/t2b/django-statsd.git
