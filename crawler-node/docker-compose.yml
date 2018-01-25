@@ -1,0 +1,9 @@
+version: '2'
+services:
+  crawler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: /src/daemon.sh
+    env_file: webindex-crawler-node.env
+    restart: always
