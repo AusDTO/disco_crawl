@@ -1,0 +1,32 @@
+version: '2'
+services:
+  es2kinesis:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: /src/scripts/run_es2kinesis.sh
+    env_file: postprocessor-node.env
+  process_raw:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: /src/scripts/run_process_raw.sh
+    env_file: postprocessor-node.env
+  process_bs4:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: /src/scripts/run_process_bs4.sh
+    env_file: postprocessor-node.env
+  #process_textract:
+  #  build:
+  #    context: .
+  #    dockerfile: Dockerfile
+  #  command: /src/scripts/run_process_textract.sh
+  #  env_file: postprocessor-node.env
+  process_goose:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: /src/scripts/run_process_goose.sh
+    env_file: postprocessor-node.env
