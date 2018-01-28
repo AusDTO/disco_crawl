@@ -26,8 +26,13 @@ def process_record(worker_num, counter, record, output_stream):
             settings.BUCKET_EXTRA, content_raw_fname
         ).get()["Body"].read()
         # so, we need to interpret them
-        raw_content = bytes(raw_content.decode("unicode_escape"), 'utf-8')
-        
+        try:
+            raw_content = bytes(raw_content.decode("unicode_escape"), 'utf-8')
+        except:
+            print("{}.{} problem decoding {}".format(
+                worker_num, counter, content_hash)) # or not...
+            return False
+
         soup = BeautifulSoup(raw_content, "lxml")
         for script in soup(["script", "style"]):
             script.extract()
