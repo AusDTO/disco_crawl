@@ -17,5 +17,4 @@ Current steps (in order):
 
 Notes:
  * the current postprocessing stages makes use of s3 for content, the only new data added to the index record on each hop is a pointer to the new content. That might not make sense for every postprocessing step.
- * some significant performance imporvement is possible if the process_record was run in a select loop (asyncio) with multiple parallel activities (this is because these processing steps are I/O bound). Alternatively, use of s3 could be taken offline (using kinesis-firehose) and the content could be added to the stream at each step, minimizing the I/O.
- * the current stream behavior is to either start at TRIM_HORIZON (oldest record available) or LATEST (start at latest record). It would be much better if each postprocessor checkpointed it's stream pointer at "last sucessful", so that we could stop and resume postprocessors.
+ * TODO: checkpoint the shard iterators: the current stream behavior is to either start at TRIM_HORIZON (oldest record available) or LATEST (start at latest record). It would be much better if each postprocessor checkpointed it's stream pointer at "last sucessful", so that we could stop and resume postprocessors.
