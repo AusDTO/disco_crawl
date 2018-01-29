@@ -30,3 +30,9 @@ services:
       dockerfile: Dockerfile
     command: /src/scripts/run_process_goose.sh
     env_file: postprocessor-node.env
+  process_readability:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: /src/scripts/run_process_readability.sh
+    env_file: postprocessor-node.env

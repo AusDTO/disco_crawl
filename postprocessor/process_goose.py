@@ -20,15 +20,12 @@ def process_record(worker_num, counter, record, output_stream):
     content_raw_fname =  "{}/content_raw".format(content_hash)
     content_goose_fname = "{}/content_goose".format(content_hash)
     content_goose_exists = file_exists_in_bucket(settings.BUCKET_EXTRA, content_goose_fname)
-    if True or not content_goose_exists:  # DEBUG (the True bit)
+    if not content_goose_exists:
         # this will not contain escape characters
         raw_content = s3_resource.Object(
             settings.BUCKET_EXTRA, content_raw_fname
         ).get()["Body"].read()
         # so we don't need to interpret them
-        #raw_content = bytes(raw_content.decode('unicode_escape'), 'utf-8')
-        #print(raw_content.decode('ascii', 'ignore'))
-
         g = Goose()
         g.config.enable_image_fetching = False
 
@@ -36,11 +33,6 @@ def process_record(worker_num, counter, record, output_stream):
         goose_content = bytes(article.cleaned_text, 'utf-8')
         # this may contains some escape character mangling
         goose_content = bytes(goose_content.decode('unicode_escape'), 'utf-8')
-        
-        #print("{}.{} content: {}".format(
-        #    worker_num, counter,
-        #    goose_content.decode('ascii', 'ignore')
-        #))  # DEBUG
         goose_fp = s3_resource.Object(settings.BUCKET_EXTRA, content_goose_fname)
         goose_fp.put(Body=goose_content)
     else:
@@ -49,6 +41,7 @@ def process_record(worker_num, counter, record, output_stream):
         ).get()["Body"].read().decode('utf-8', 'ignore')
 
     data['content_goose_fname'] = content_goose_fname
+    data['content_goose'] = str(goose_content)
     put_json_into_stream(output_stream, data, content_hash)
     print("{}.{} processed {}".format(worker_num, counter, content_hash))
 

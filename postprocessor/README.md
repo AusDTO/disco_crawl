@@ -13,15 +13,17 @@ Current steps (in order):
  * process_raw: Cleans up some unicode escape characters from the downloaded content
  * process_bs4: Creates a plain-text extract of the web content (no summarisation, just HTML stripping)
  * process_goose: Creates simple non-generative (content-based) summarisation of the page content. Basically the same as process_bs4 but without headers, footers, menus etc.
+ * process_readability: Uses goose summary to produce a suite of readability scores using classic NLTK techniques.
 
 
 Notes:
  * the current postprocessing stages makes use of s3 for content, the only new data added to the index record on each hop is a pointer to the new content. That might not make sense for every postprocessing step.
  * TODO: Checkpoint the shard iterators: The current stream behavior is to either start at TRIM_HORIZON (oldest record available) or LATEST (start at latest record). It would be much better if each postprocessor checkpointed it's stream pointer at "last sucessful", so that we could stop and resume postprocessors. This would remove the need for TRIM_HORIZON settings (behavior would start at the beginning unless checkpoint exists, else start at checkpoint). 
  * TODO: tune number of shards so that job can complete in a reasonable time
+ * TODO: fix the bug (multiprocessing related?) that means process_bs4 sometimes creates duplicates
+ * TODO: fix the boto3/ssl bug (SSL3_GET_RECORD:decryption failed or bad record mac), possibly by moving boto client creation inside the worker (non-global). I.e. try to avoid shared ssl sockets between processes.
  * TODO: use checkpoint infrastructure (shared state) to lock shard iterators; such that we can have multiple nodes in parallel and each shard ends up getting processed by exactly one node. Or not, this might be a little funky especially if dynamic - instead maybe just scale-up the node so it can handle a processes for every shard.
  * TODO: add processor for "DNS cleanup". Currently, we have some corrupt domain names (caused by mangled mailto: links in pages that we aren't handling gracefully). We could add a cleanup task to chomp `foo@` from them -> cleaned_domain attribute.
- * TODO: add processor for readability score (using goose/NLTK summary).
  * TODO: output processor that flags post-processing state in primary index.
  * TODO: refactor processors (bs4, goose) so they append data to field rather than s3 (performance hack - only write to s3 if DEBUG or something like that. It was useful for development but not interesting except at the end)
  * TODO: use firehose to write content to s3 (outside of the pipeline)

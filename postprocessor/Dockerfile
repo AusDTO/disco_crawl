@@ -15,26 +15,25 @@ ADD ./requirements.txt /src/requirements.txt
 WORKDIR /src
 RUN pip install -r requirements.txt
 
+RUN pip install pyphen
+RUN mkdir tmp &&  cd tmp \
+    && apt-get install -y git \
+    && apt-get autoremove -y \
+    && git clone https://github.com/wimmuskee/readability-score.git \
+    && cd readability-score \
+    && python3.6 setup.py build \
+    && python3.6 setup.py install \
+    && cd ../.. \
+    %% rm -rf tmp
+
 ADD ./scripts /src/scripts
+RUN python3.6 scripts/setup_nltk.py
+
 ADD ./settings.py /src/
 ADD ./base_node.py /src/
 ADD ./es2kinesis.py /src/
 ADD ./process_bs4.py /src/
 ADD ./process_goose.py /src/
 ADD ./process_raw.py /src/
-#ADD ./process_textract.py /src/
-ADD ./simple_node.py /src/
-
-# stuff textract needs
-#RUN apt-get install -y swig gcc libpulse-dev libjpeg-dev \
-#    build-essential git make \
-#    python-dev libxml2-dev libxslt1-dev antiword unrtf \
-#    tesseract-ocr libjpeg-dev poppler-utils pstotext \
-#    flac ffmpeg lame libmad0 libsox-fmt-mp3 sox
-#
-#RUN apt-get install -y zlib1g-dev
-#RUN apt-get install -y libpocketsphinx-dev libpocketsphinx3
-#
-#RUN pip install -U EbookLib==0.16
-#RUN pip install -U pocketsphinx
-#RUN pip install textract
+ADD ./process_readability.py /src/
+# ADD ./simple_node.py /src/

@@ -27,9 +27,14 @@ aws kinesis create-stream \
     --profile difchain-digitalrecords-integration \
     --region ap-southeast-2
 
-
 aws kinesis create-stream \
     --stream-name verified_goose \
+    --shard-count 1 \
+    --profile difchain-digitalrecords-integration \
+    --region ap-southeast-2
+
+aws kinesis create-stream \
+    --stream-name readability_scored \
     --shard-count 1 \
     --profile difchain-digitalrecords-integration \
     --region ap-southeast-2

@@ -19,11 +19,6 @@ import multiprocessing
 
 import settings
 
-'''
-aws_session = boto3.Session(
-    profile_name=settings.AWS_PROFILE,
-    region_name=settings.AWS_REGION)
-'''
 aws_session = boto3.Session(
     region_name=settings.AWS_REGION,
     aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
@@ -39,31 +34,6 @@ def file_exists_in_bucket(bucket, s3key):
         return True
     except:
         return False
-
-"""
-SHARD_ITERATOR_TYPE AWS Docs:
- * AT_SEQUENCE_NUMBER - Start reading from the position denoted
-   by a specific sequence number, provided in the value
-   StartingSequenceNumber.
- * AFTER_SEQUENCE_NUMBER - Start reading right after the position
-   denoted by a specific sequence number, provided in the value
-   StartingSequenceNumber.
- * AT_TIMESTAMP - Start reading from the position denoted by a
-   specific time stamp, provided in the value Timestamp.
- * TRIM_HORIZON - Start reading at the last untrimmed record in
-   the shard in the system, which is the oldest data record in 
-   the shard.
- * LATEST - Start reading just after the most recent record in
-   the shard, so that you always read the most recent data in
-   the shard.
-
-We might want some database with ShardSequenceNumber checkpointing
-and AT_SEQUENCE_NUMBER. Until then, TRIM_HORIZON (with idempotent
-processing steps, check S3 etc).
-"""
-SHARD_ITERATOR_TYPE = settings.SHARD_ITERATOR_TYPE
-#'LATEST' # for dev/debugging only
-#SHARD_ITERATOR_TYPE = 'TRIM_HORIZON'
 
 
 def process_record(num, counter, record, output_stream):
@@ -110,7 +80,7 @@ def main(process_record, input_stream_name, output_stream=None):
         shard_iterator = kinesis_client.get_shard_iterator(
             StreamName=input_stream_name,
             ShardId=shard_id,
-            ShardIteratorType=SHARD_ITERATOR_TYPE
+            ShardIteratorType=settings.SHARD_ITERATOR_TYPE
         )
         shard_iterator_id = shard_iterator['ShardIterator']
         shard_iterator_response = kinesis_client.get_records(
