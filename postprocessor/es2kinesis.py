@@ -47,15 +47,14 @@ if __name__ == "__main__":
     ).query(
         "match",
         DomainName="www.environment.gov.au"
-    )
-    '''.query(
+    ).query(
         "match",
         keywords="climate"
     ).query(
         "match",
         keywords="science"
     )
-    '''
+    
     '''.query(
         "match",
         domain="www.environment.gov.au"
