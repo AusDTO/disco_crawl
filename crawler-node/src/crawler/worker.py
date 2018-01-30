@@ -191,12 +191,17 @@ class LinkParser(HTMLParser):
             if href.startswith('#'):
                 # internal in-page or complex javascript link, ignore
                 return
-            if rel != 'nofollow':
-                if href != '#' and not href.lower().startswith("javascript:"):
-                    if not href.lower().startswith("mailto:"):
-                        self.links.add(
-                            normalize_href(href, self.page_url).strip().replace('\n', '').replace('\r', '')
-                        )
+            if rel == 'nofollow':
+                return
+            if href == '#' or href.lower().startswith('javascript:'):
+                return
+            if href.lower().startswith('mailto:'):
+                return
+            if href.lower().startswith('tel:'):
+                return
+            self.links.add(
+                normalize_href(href, self.page_url).strip().replace('\n', '').replace('\r', '')
+            )
 
 
 def is_domain_local(our_domain, target_domain):
