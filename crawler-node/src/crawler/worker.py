@@ -218,6 +218,15 @@ def is_domain_local(our_domain, target_domain):
     return False
 
 
+def is_redirect_local(our_domain, resp):
+    if not resp.is_redirect:
+        return False
+    parsed_url = urlparse(resp.next.url)
+    if not parsed_url.netloc:
+        return True
+    return is_domain_local(our_domain, parsed_url.netloc)
+
+
 @statsd_timer('crawler.proc.get_already_crawled')
 def get_already_crawled(domain_name):
     already_crawled = set()
@@ -300,6 +309,19 @@ def postprocess_resp(domain_name, scheme, url, resp, data, error, head_execution
                     if parsed_url.netloc.endswith('.gov.au'):
                         # interesting for us
                         put_to_redis("SEEN", parsed_url.netloc)
+
+    # if this is a redirect then we have at least one link.
+    # Just need to decide, if it's external or internal here
+    if resp and resp.is_redirect:
+        parsed_redirect_url = urlparse(resp.next.url)
+        if is_redirect_local(domain_name, resp):
+            nohost_redirect_url = parsed_redirect_url._replace(scheme='', netloc='')
+            internal_links.add(nohost_redirect_url.geturl() or '/')
+        else:
+            # if resulting domain is not the same then we add new domain to seen list
+            external_links.add(resp.next.url)
+            external_domains.add(parsed_redirect_url.netloc)
+
     scl.incr('crawler.postprocess.internal-links-found', len(internal_links))
     scl.incr('crawler.postprocess.external-links-found', len(external_links))
     try:
@@ -346,11 +368,25 @@ def do_work(domain_name, scheme, url, sleep_seconds):
     t_before_head = time.time()
     scl.incr('crawler.domain.fetch-head')
     try:
-        r_resp = requests.head(url, allow_redirects=True, headers=HEADERS, timeout=10)
+        r_resp = requests.head(url, allow_redirects=False, headers=HEADERS, timeout=10)
         resp = r_resp
         data = '...'
+        if r_resp.is_redirect:
+            # redirect to r.next.url, so we log 302
+            scl.incr('crawler.domain.redirect')
+            if is_redirect_local(domain_name, r_resp):
+                # if the same - just log redirect, and the redirect link as one linked page
+                scl.incr('crawler.domain.redirect-internal')
+            else:
+                # if resulting domain is not the same then we add new domain to seen list
+                scl.incr('crawler.domain.redirect-external')
+                extra_domain = urlparse(r_resp.next.url).netloc.lower()
+                if extra_domain.endswith('.gov.au'):
+                    put_to_redis("SEEN", extra_domain)
+                # print("Redirect to {} gives us {} domain name as seen".format(r_resp.next.url, extra_domain))
     except Exception as e:
         scl.incr('crawler.domain.fetch-head-exception')
+        logger.exception(e)
         formatted = str(e)
         # if 'ssl.CertificateError' in formatted or 'socket.gaierror' in formatted or 'httplib2.' in formatted:
         #     log the problem
@@ -375,7 +411,7 @@ def do_work(domain_name, scheme, url, sleep_seconds):
             r_resp = requests.get(
                 url,
                 headers=HEADERS,
-                allow_redirects=True,
+                allow_redirects=False,
                 timeout=10
             )
             resp = r_resp
@@ -392,7 +428,6 @@ def do_work(domain_name, scheme, url, sleep_seconds):
             logger.error("[%s] Error %s for %s", domain_name, formatted, url)
         else:
             scl.incr('crawler.domain.fetch-get-success')
-    # print(domain_name, url, resp, data, error)
     return postprocess_resp(
         domain_name, scheme, url,
         resp, data, error,
