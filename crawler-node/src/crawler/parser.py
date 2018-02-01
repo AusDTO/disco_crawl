@@ -127,20 +127,34 @@ class WebsiteParser(object):
             })
             result.update(self._get_mimetype())
 
+        if self.resp and self.resp.is_redirect:
+            result.update({
+                'redirectTo': self.resp.next.url,
+            })
+
         if self.is_html:
             descr = self._get_description(soup)
             if isinstance(descr, str):
                 descr = descr.strip()
             result.update({
-                # 'Description': descr,
-                'externalDomains': self.external_domains,
-                'externalDomainsCount': len(self.external_domains),
-                'externalLinks': self._prefetch_external_links(self.external_links),
-                'externalLinksCount': len(self.external_links),
-                'links': self.internal_links,
-                'linksCount': len(self.internal_links),
                 'keywords': self.get_keywords(soup) if soup else None
             })
+        if self.internal_links:
+            result.update({
+                'links': self.internal_links,
+                'linksCount': len(self.internal_links),
+            })
+        if self.external_links:
+            result.update({
+                'externalLinks': self._prefetch_external_links(self.external_links),
+                'externalLinksCount': len(self.external_links),
+            })
+        if getattr(self, 'externalDomains', []):
+            result.update({
+                'externalDomains': self.external_domains,
+                'externalDomainsCount': len(self.external_domains),
+            })
+
         if filename:
             result['filename'] = filename
         if page_title:
