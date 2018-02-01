@@ -581,7 +581,7 @@ def do_main_futures(domain_name):
                 utcnow().isoformat()
             )
             memused = get_memory_usage()
-            if memused > 700:
+            if memused > 1500:
                 print("[{}] Too much memory consumed ({}MB), exiting".format(
                     domain_name,
                     memused,

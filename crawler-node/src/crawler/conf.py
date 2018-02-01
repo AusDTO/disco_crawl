@@ -24,7 +24,7 @@ settings = AttrDict({
     'REDIS_LOCK_ENDPOINT': os.environ.get('REDIS_LOCK_ENDPOINT'),
     'REDIS_LOCK_DB': int(os.environ.get('REDIS_LOCK_DB')),
     'REDIS_LOCK_PASSWORD': os.environ.get('REDIS_LOCK_PASSWORD', None),
-    'LOCK_TIMEOUT_MINUTES': int(os.environ.get('LOCK_TIMEOUT_MINUTES', 30)),
+    'LOCK_TIMEOUT_MINUTES': int(os.environ.get('LOCK_TIMEOUT_MINUTES', 10)),
 
     'REDIS_FINISHED_ENDPOINT': os.environ.get('REDIS_FINISHED_ENDPOINT'),
     'REDIS_FINISHED_DB': int(os.environ.get('REDIS_FINISHED_DB')),
