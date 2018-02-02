@@ -8,7 +8,7 @@ ssh $1 "sudo mkdir -p ${TARGET_ROOT}; sudo chown -R ubuntu ${TARGET_ROOT}"
 
 rsync -L --delete --recursive --exclude 'var' \
       --exclude '.venv' --exclude '.git' \
-      src webindex-crawler-node.env local.env manage.sh Dockerfile .dockerignore docker-compose.yml src \
+      src webindex-crawler-node.env manage.sh Dockerfile .dockerignore docker-compose.yml src \
       $1:${TARGET_ROOT}
 
 echo "Finished deploy to $1"

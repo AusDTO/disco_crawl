@@ -102,8 +102,10 @@ def robots_allow(domain_name, robots, url):
 
 def domainize_link(domain_name, link, scheme='http'):
     parsed = urlparse(link)
-    nohost = parsed._replace(scheme=scheme, netloc=domain_name)
-    return nohost.geturl() or '/'
+    domainised = parsed._replace(scheme=scheme, netloc=domain_name)
+    if domainised.path == '':
+        domainised = domainised._replace(path='/')
+    return domainised.geturl()
 
 
 class TimeoutException(Exception):
@@ -144,8 +146,6 @@ def time_limit(seconds):
 def normalize_href(href, page_url=None):
     if not href:
         return href
-    # if href.startswith('../'):
-    #     href = '/' + href
     parsed = urlparse(href)
 
     only_path = parsed.path
@@ -300,7 +300,10 @@ def postprocess_resp(domain_name, scheme, url, resp, data, error, head_execution
             if not parsed_url.netloc or is_domain_local(domain_name, parsed_url.netloc):
                 # local link
                 normalized_url = parsed_url.geturl()
-                internal_links.add(normalized_url)
+                if len(normalized_url) < 1024:  # experimental value
+                    internal_links.add(normalized_url)
+                else:
+                    print("Ignoring the link {}, too long".format(normalized_url))
             else:
                 # external link
                 external_links.add(parsed_url.geturl())
@@ -308,7 +311,10 @@ def postprocess_resp(domain_name, scheme, url, resp, data, error, head_execution
                     external_domains.add(parsed_url.netloc)
                     if parsed_url.netloc.endswith('.gov.au'):
                         # interesting for us
-                        put_to_redis("SEEN", parsed_url.netloc)
+                        if ":" in parsed_url.netloc or "@" in parsed_url.netloc:
+                            print("Ignoring suspicious domain name {}".format(parsed_url.netloc))
+                        else:
+                            put_to_redis("SEEN", parsed_url.netloc)
 
     # if this is a redirect then we have at least one link.
     # Just need to decide, if it's external or internal here
@@ -556,7 +562,7 @@ def do_main_futures(domain_name):
         scl.incr('crawler.domain.kickstart-links-alreadycrawled', len(already_crawled))
         scl.incr('crawler.domain.kickstart-links-startwith', len(next_links))
     if not next_links:
-        next_links = ["{}://{}".format(scheme, domain_name)]
+        next_links = ["{}://{}/".format(scheme, domain_name)]
     for ac in already_crawled:
         blacklist.put(ac)
 
@@ -620,9 +626,11 @@ def do_main_futures(domain_name):
         next_links = []
         new_links = set(new_links)
         for link in new_links:
-            if not blacklist.is_blacklisted(link):
+            if not blacklist.is_blacklisted(link) and link not in chunk:
                 blacklist.put(link)
-                next_links.append(domainize_link(domain_name, link, scheme=scheme))
+                domainised_link = domainize_link(domain_name, link, scheme=scheme)
+                if domainised_link not in chunk:
+                    next_links.append(domainised_link)
         if not next_links:
             scl.incr('crawler.domain.finished-completely')
             print("[{}] Nothing more to crawl".format(domain_name))
