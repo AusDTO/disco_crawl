@@ -19,18 +19,20 @@ sqs_resource = boto3.resource('sqs', region_name=settings.AWS_REGION)
 
 SEND_PER_ITERATION = 50
 
+recently_sent_domains = set()
 
-def wwwise(domain_name):
-    # return domain name spelling variants - with and without the WWW
-    domain_name = domain_name.lower()
-    nowww, www = None, None
-    if domain_name.startswith('www.'):
-        nowww = domain_name[len('www.'):]
-        www = domain_name
-    else:
-        nowww = domain_name
-        www = 'www.' + domain_name
-    return [www, nowww]
+
+# def wwwise(domain_name):
+#     # return domain name spelling variants - with and without the WWW
+#     domain_name = domain_name.lower()
+#     nowww, www = None, None
+#     if domain_name.startswith('www.'):
+#         nowww = domain_name[len('www.'):]
+#         www = domain_name
+#     else:
+#         nowww = domain_name
+#         www = 'www.' + domain_name
+#     return [www, nowww]
 
 
 def should_be_crawled(domain_name):
@@ -53,6 +55,7 @@ def crawl_domain(rd):
         QueueName=settings.QUEUE_REQUESTS.split(':')[-1],
         QueueOwnerAWSAccountId=settings.QUEUE_REQUESTS.split(':')[-2]
     )
+    recently_sent_domains.add(rd)
     requests_queue.send_message(
         MessageBody=rd
     )
@@ -81,14 +84,13 @@ def is_redis_crawl_locked(domain_name):
         duetime = utcnow() - datetime.timedelta(minutes=settings.LOCK_TIMEOUT_MINUTES)
         if parsed_date:
             if parsed_date > duetime:
-                print("[{}] Dropping the message, locked till {}".format(domain_name, parsed_date))
+                print("[{}] Won't crawl the domain, locked till {}".format(domain_name, parsed_date))
                 return True
         else:
             print("[{}] Unparseable datetime".format(domain_name, recent_crawled_at))
         return False
 
     # check both www and no-www version, return "locked" if at least one is locked
-    nowww, www = None, None
     if domain_name.startswith('www.'):
         nowww = domain_name[len('www.'):]
         www = domain_name
@@ -118,41 +120,27 @@ def get_random_noncrawled_domains():
 
     # potentialy slow procedure, but still okay while we have just like 10 or 20k records
     all_seen_domains = [
-        x.decode('utf-8') for x in db_seen.keys('*')
+        x.decode('utf-8').lower() for x in db_seen.keys('*')
     ]
+    random.shuffle(all_seen_domains)
 
-    unique_seen_domains = set()
-    for key in all_seen_domains:
-        domain_variants = wwwise(key)
-        is_added_already = False
-        for dv in domain_variants:
-            if dv in unique_seen_domains:
-                is_added_already = True
-        if not is_added_already:
-            unique_seen_domains.add(key)
-
-    # unique_seen_domains will contain all seen domains with www-no-www duplicates dropped
-    # (so no www.nt.gov.au while nt.gov.au is already there)
-    unique_seen_domains = list(unique_seen_domains)
-    random.shuffle(unique_seen_domains)
-
-    for domain_name in unique_seen_domains:
+    for domain_name in all_seen_domains:
         # if domain is not crawled yet
         is_finished = False
-        for dvariant in wwwise(domain_name):
-            if db_finished.get(domain_name):
-                is_finished = True
+        if db_finished.get(domain_name):
+            is_finished = True
 
         if not is_finished and should_be_crawled(domain_name):
             if not is_redis_crawl_locked(domain_name):
                 domains.append(domain_name)
-        if len(domains) > SEND_PER_ITERATION:
+        if len(domains) > SEND_PER_ITERATION * 10:
             break
 
     return domains
 
 
 def main_cycle():
+    sent_some_domains = False
     requests_queue = sqs_resource.get_queue_by_name(
         QueueName=settings.QUEUE_REQUESTS.split(':')[-1],
         QueueOwnerAWSAccountId=settings.QUEUE_REQUESTS.split(':')[-2]
@@ -166,19 +154,25 @@ def main_cycle():
             # queue is empty, get some more requests there
             random_domains = get_random_noncrawled_domains()
             domains_to_send = SEND_PER_ITERATION
+            sent_some_domains = True
             for rd in random_domains:
                 if should_be_crawled(rd):
-                    crawl_domain(rd)
-                    domains_to_send -= 1
-                    if domains_to_send == 0:
-                        break
+                    if rd in recently_sent_domains:
+                        print("Domain {} has been already sent recently, ignoring it this time".format(rd))
+                    else:
+                        crawl_domain(rd)
+                        domains_to_send -= 1
+                        if domains_to_send == 0:
+                            break
+    return sent_some_domains
 
 
-# print("Should be True: {}".format(is_domain_crawled("www.education.gov.au")))
-till_restart = 60
+# we restart the script each 10 sends, just to make sure it's fresh
+till_restart = 100
 while till_restart > 0:
-    main_cycle()
-    time.sleep(3)
-    till_restart -= 1
+    if main_cycle():
+        till_restart -= 1
+        time.sleep(7)
+    time.sleep(5)
 
 print("Steward has finished.")

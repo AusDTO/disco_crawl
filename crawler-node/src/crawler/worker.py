@@ -53,7 +53,7 @@ def put_to_redis(action, domain_name):
         password=settings.get('REDIS_{}_PASSWORD'.format(action)),
     )
     cli.set(
-        domain_name,
+        domain_name.lower(),
         utcnow().isoformat()
     )
 
@@ -205,34 +205,51 @@ class LinkParser(HTMLParser):
 
 
 def is_domain_local(our_domain, target_domain):
-    if our_domain.startswith('www.'):
-        pure_domain = our_domain[len('www.'):]
-        www_domain = our_domain
-    else:
-        pure_domain = our_domain
-        www_domain = 'www.' + our_domain
-    if not target_domain:
-        return True
-    if target_domain in (pure_domain, www_domain):
-        return True
-    return False
+    return our_domain.strip().lower() == target_domain.strip().lower()
+    # if our_domain.startswith('www.'):
+    #     pure_domain = our_domain[len('www.'):]
+    #     www_domain = our_domain
+    # else:
+    #     pure_domain = our_domain
+    #     www_domain = 'www.' + our_domain
+    # if not target_domain:
+    #     return True
+    # if target_domain in (pure_domain, www_domain):
+    #     return True
+    # return False
 
 
 def is_redirect_local(our_domain, resp):
+    """
+    Return True for local requests and False for any extra domain
+    Please note that usually we consider www.site.gov.au and site.gov.au is a same
+    domain, but not here, because site.gov.au usually redirects to www version
+    """
     if not resp.is_redirect:
         return False
     parsed_url = urlparse(resp.next.url)
     if not parsed_url.netloc:
         return True
-    return is_domain_local(our_domain, parsed_url.netloc)
+    if parsed_url.netloc.lower().strip() == our_domain.lower().strip():
+        return True
+    return False
 
 
 @statsd_timer('crawler.proc.get_already_crawled')
 def get_already_crawled(domain_name):
+    """
+    Return all crawled pages both for www and not-www where the status is not 3xx
+    """
     already_crawled = set()
     next_links = set()
 
     mybl = BlacklistManagerClass()
+
+    # nowww_domain_name = (
+    #     domain_name
+    #     if not domain_name.startswith('www.')
+    #     else domain_name[len('www.'):]
+    # )
 
     try:
         objects = []
@@ -240,6 +257,7 @@ def get_already_crawled(domain_name):
             client=es,
             index=settings.ANALYTICS_ES_INDEX_NAME,
             doc_type='crawledpage',
+            # q='DomainName:"{}" DomainName:"www.{}"'.format(nowww_domain_name, nowww_domain_name),
             q='DomainName:"{}"'.format(domain_name),
             size=1000,
             scroll='2m',
@@ -260,6 +278,79 @@ def get_already_crawled(domain_name):
     next_links = list(next_links)[:settings.MAX_RESULTS_PER_DOMAIN]
     random.shuffle(next_links)
     return list(already_crawled)[:], next_links[:]
+
+
+def is_website_dualdomain(domain_name, is_https=None):
+    """
+    Return True if this website is being served both as www.website.name and website.name
+    This is unpleasant behaviour, because websices should redirect from www to non-www version
+    (or vs) and without such extra check we will crawl website twice.
+
+    Timeouts are hardcoded because we don't want to spend too much time on it and expect websites
+    to be able to handle 4 extra index page requests in 12 seconds
+    """
+
+    def no_redirect_or_local_redirect(domain_name, is_https):
+        """
+        Return True if given domain name for index page returns either some content page
+        or local redirect
+        False if it redirects somewhere outside (for example from non-www to www version)
+        """
+        time.sleep(3)
+
+        url = "{}://{}/".format(
+            'https' if is_https else 'http',
+            domain_name
+        )
+        try:
+            resp = requests.head(
+                url,
+                allow_redirects=False,
+                headers=HEADERS,
+                timeout=20
+            )
+        except Exception as e:
+            # they support www but don't support non-www version, assume domain broken
+            # another version is still may be available and crawled
+            # put_message_to_es(domain_name, msg="broken")
+            # return False
+            # last chance - if it's https when we fall back to http, and use http result
+            if is_https:
+                url = "http://{}/".format(domain_name)
+                try:
+                    resp = requests.head(
+                        url,
+                        allow_redirects=False,
+                        headers=HEADERS,
+                        timeout=20
+                    )
+                except Exception as e:
+                    # no chances anymore
+                    return False
+            else:
+                return False
+        if not resp.is_redirect:
+            return True
+        # is redirect, is it inside the same domain?
+        next_domain = urlparse(resp.next.url).netloc
+        if next_domain.lower() == domain_name.lower():
+            # internal redirect, we don't care about the protocol yet
+            return True
+        else:
+            # external redirect, this website most likely won't give us anything
+            return False
+
+    if domain_name.startswith('www.'):
+        nowww = domain_name[len('www.'):]
+        www = domain_name
+    else:
+        nowww = domain_name
+        www = 'www.' + domain_name
+
+    if no_redirect_or_local_redirect(www, is_https) and no_redirect_or_local_redirect(nowww, is_https):
+        return True
+    else:
+        return False
 
 
 @statsd_timer('crawler.proc.postprocess_resp')
@@ -473,12 +564,34 @@ def do_main_futures(domain_name):
     try:
         r = requests.head('https://{}'.format(domain_name))
         str_status = str(r.status_code)
-        if str_status.startswith('2') or str_status.startswith('1'):
+        if str_status and str_status[0] in ['1', '2', '3']:
             scheme = 'https'
         scl.incr('crawler.domain.https_found')
+        logger.info(
+            "[https://%s] The website is HTTPS", domain_name,
+        )
     except Exception as e:
-        print("While trying to request https version got {} error".format(e))
+        logger.error(
+            "[http://%s] While trying to request https version got %s error",
+            domain_name, str(e)
+        )
         scl.incr('crawler.domain.https_not_found')
+
+    dual = is_website_dualdomain(domain_name, scheme == 'https')
+    if dual:
+        if domain_name.startswith('www.'):
+            # crawl it
+            scl.incr('crawler.domain.dual-crawl')
+            pass
+        else:
+            # for dual-domain websites ignore the non-www version
+            scl.incr('crawler.domain.dual-ignore')
+            print("[%s] Won't crawl the domain because www-version will be crawled some day" % domain_name)
+            put_to_redis("SEEN", 'www.' + domain_name)
+            put_message_to_es(domain_name, msg="dual-domain")
+            put_message_to_es(domain_name, msg="finished")
+            put_to_redis("FINISHED", domain_name)
+            return
 
     # fetch robots.txt file
     try:
@@ -660,7 +773,6 @@ def is_redis_crawl_locked(domain_name):
             print("[{}] Unparseable datetime".format(domain_name, recent_crawled_at))
         return False
 
-    nowww, www = None, None
     if domain_name.startswith('www.'):
         nowww = domain_name[len('www.'):]
         www = domain_name
