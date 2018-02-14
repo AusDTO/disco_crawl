@@ -132,7 +132,8 @@ def get_random_noncrawled_domains():
 
         if not is_finished and should_be_crawled(domain_name):
             if not is_redis_crawl_locked(domain_name):
-                domains.append(domain_name)
+                if domain_name not in recently_sent_domains:
+                    domains.append(domain_name)
         if len(domains) > SEND_PER_ITERATION * 10:
             break
 

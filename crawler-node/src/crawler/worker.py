@@ -456,7 +456,7 @@ def do_work(domain_name, scheme, url, sleep_seconds):
         scheme, domain_name, url, sleep_seconds
     ))
 
-    sleep_timeout = random.randint(sleep_seconds, int(sleep_seconds * 1.4))
+    sleep_timeout = 5 + random.randint(sleep_seconds, int(sleep_seconds * 1.4))
     scl.incr('crawler.generic.slept_ms', sleep_timeout * 1000)
     time.sleep(sleep_timeout)
 
