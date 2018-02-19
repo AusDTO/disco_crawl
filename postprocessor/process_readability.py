@@ -20,6 +20,8 @@ from readability_score.calculators.fleschkincaid import FleschKincaid
 from readability_score.calculators.linsearwrite import LinsearWrite
 from readability_score.calculators.smog import SMOG
 
+DEBUG=True
+
 
 def process_record(worker_num, counter, record, output_stream):
     data = json.loads(record['Data'])
@@ -51,6 +53,22 @@ def process_record(worker_num, counter, record, output_stream):
     
     put_json_into_stream(output_stream, data, content_hash)
     print("{}.{} processed {}".format(worker_num, counter, content_hash))
+    if DEBUG:
+        keys = (
+            "readability_score_ARI", "readability_score_ColemanLiau",
+            "readability_score_DaleChall", "readability_score_Flesch",
+            "readability_score_FleschKincaid", "readability_score_LinsearWrite",
+            "readability_score_SMOG"
+        )
+        try:
+            content = data["content_goose"].encode('utf8', 'ignore')
+            for k in keys:
+                print("{}: {}".format(k, data[k]))
+            print(content)
+            print("------------------------------------------------------------------")
+            print("")
+        except:
+            pass
 
 if __name__ == '__main__':
     main(process_record, settings.STREAM_VERIFIED_GOOSE, settings.STREAM_READABILITY_SCORED)
