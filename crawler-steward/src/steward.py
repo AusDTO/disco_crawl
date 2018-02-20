@@ -22,19 +22,6 @@ SEND_PER_ITERATION = 50
 recently_sent_domains = set()
 
 
-# def wwwise(domain_name):
-#     # return domain name spelling variants - with and without the WWW
-#     domain_name = domain_name.lower()
-#     nowww, www = None, None
-#     if domain_name.startswith('www.'):
-#         nowww = domain_name[len('www.'):]
-#         www = domain_name
-#     else:
-#         nowww = domain_name
-#         www = 'www.' + domain_name
-#     return [www, nowww]
-
-
 def should_be_crawled(domain_name):
     blacklist = [
         ".qld.gov.au", ".nsw.gov.au", ".vic.gov.au", ".nt.gov.au",
@@ -84,7 +71,7 @@ def is_redis_crawl_locked(domain_name):
         duetime = utcnow() - datetime.timedelta(minutes=settings.LOCK_TIMEOUT_MINUTES)
         if parsed_date:
             if parsed_date > duetime:
-                print("[{}] Won't crawl the domain, locked till {}".format(domain_name, parsed_date))
+                # print("[{}] Won't crawl the domain, locked till {}".format(domain_name, parsed_date))
                 return True
         else:
             print("[{}] Unparseable datetime".format(domain_name, recent_crawled_at))
@@ -124,18 +111,45 @@ def get_random_noncrawled_domains():
     ]
     random.shuffle(all_seen_domains)
 
-    for domain_name in all_seen_domains:
-        # if domain is not crawled yet
-        is_finished = False
-        if db_finished.get(domain_name):
-            is_finished = True
+    stats_locked = 0
+    stats_recently_seen = 0
+    stats_finished = 0
 
-        if not is_finished and should_be_crawled(domain_name):
-            if not is_redis_crawl_locked(domain_name):
-                if domain_name not in recently_sent_domains:
-                    domains.append(domain_name)
+    for domain_name in all_seen_domains:
+        domain_name = domain_name.strip()
+        # if domain is not crawled yet
+        if not should_be_crawled(domain_name):
+            # not interesting domain
+            continue
+
+        if domain_name in recently_sent_domains:
+            stats_recently_seen += 1
+            continue
+
+        if db_finished.get(domain_name):
+            stats_finished += 1
+            continue
+
+        if is_redis_crawl_locked(domain_name):
+            stats_locked += 1
+            continue
+
         if len(domains) > SEND_PER_ITERATION * 10:
             break
+
+        domains.append(domain_name)
+
+    print(
+        (
+            "This iteration: {} domain to be crawled, {} already sent recently,"
+            " {} finished, {} redis-locked"
+        ).format(
+            len(domains),
+            stats_recently_seen,
+            stats_finished,
+            stats_locked
+        )
+    )
 
     return domains
 

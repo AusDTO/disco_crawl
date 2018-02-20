@@ -28,8 +28,8 @@ def statsd_timer(counter_name):
                 msecs = (te - ts) * 1000
                 if host:
                     scl.timing(counter_name, msecs)
-                else:
-                    print("    [TIMING] {}: {}ms".format(counter_name, int(msecs)))
+                # else:
+                #     print("    [TIMING] {}: {}ms".format(counter_name, int(msecs)))
             return result
         return timed
     return decorator
