@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import datetime
 import concurrent.futures
+import hashlib
 import os
 import sys
 import signal
@@ -119,7 +120,12 @@ class BlacklistManagerClass(object):
     def _get_clean_link(self, link):
         parsed = urlparse(link)
         nohost = parsed._replace(scheme='', netloc='')
-        return nohost.geturl() or '/'
+        clean_url = nohost.geturl() or '/'
+        try:
+            return hashlib.md5(clean_url.encode("utf-8")).hexdigest().lower()
+        except Exception as e:
+            # can't be encoded, return the string
+            return clean_url
 
     def put(self, link):
         # urlparse("https://wow.xxx/a/b/c/?d=e&f=g#123")
@@ -244,12 +250,6 @@ def get_already_crawled(domain_name):
     next_links = set()
 
     mybl = BlacklistManagerClass()
-
-    # nowww_domain_name = (
-    #     domain_name
-    #     if not domain_name.startswith('www.')
-    #     else domain_name[len('www.'):]
-    # )
 
     try:
         objects = []
